@@ -1,40 +1,60 @@
-import { jest } from '@jest/globals';
+import { query } from '../../config/database.js';
+import { OrderModel } from '../../models/order.js';
+import { closeTestDatabase, resetTestDatabase } from '../setupTestDB.js';
 
-jest.unstable_mockModule('../../config/database.js', () => ({
-  query: jest.fn(),
-}));
+/**
+ * Utility helpers for inserting required data
+ */
 
-const { query } = await import('../../config/database.js');
-const { OrderModel } = await import('../../models/order.js');
-import type { Product } from '../../models/product.js';
-import type { OrderDetail } from '../../models/order.js';
+async function createTestUser() {
+  const result = await query(
+    `INSERT INTO users (first_name, last_name, email, password_hash, created_at, updated_at)
+     VALUES ('Test', 'User', 'test_${Date.now()}@example.com', 'hash', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+     RETURNING *`
+  );
+  return result.rows[0];
+}
+
+async function createTestProduct(name = 'Product', price = 20) {
+  const result = await query(
+    `INSERT INTO products (name, description, price, stock, category, created_at, updated_at)
+     VALUES ($1, 'desc', $2, 10, 'cat', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+     RETURNING *`,
+    [name, price]
+  );
+  return result.rows[0];
+}
 
 describe('OrderModel', () => {
-  const mockQuery = query as jest.MockedFunction<typeof query>;
+  beforeAll(async () => {
+  await resetTestDatabase();
+});
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
+beforeEach(async () => {
+  // Clean the entire DB before EVERY test
+  await query(`
+    TRUNCATE TABLE 
+      order_items,
+      orders,
+      products,
+      users
+    RESTART IDENTITY CASCADE;
+  `);
+});
 
+afterAll(async () => {
+  await closeTestDatabase();
+});
+
+  // ---------------------------------------------------------
+  //  create()
+  // ---------------------------------------------------------
   describe('create', () => {
     it('should create a new order', async () => {
-      const mockOrder = {
-        id: 1,
-        user_id: 1,
-        status: 'complete',
-        customer_first_name: 'John',
-        customer_last_name: 'Doe',
-        customer_email: 'john@example.com',
-        customer_address: '123 Main St',
-        payment_method: 'card',
-        created_at: new Date(),
-        updated_at: new Date(),
-      };
+      const user = await createTestUser();
 
-      mockQuery.mockResolvedValueOnce({ rows: [mockOrder], rowCount: 1 });
-
-      const result = await OrderModel.create(
-        1,
+      const order = await OrderModel.create(
+        user.id,
         'John',
         'Doe',
         'john@example.com',
@@ -43,248 +63,185 @@ describe('OrderModel', () => {
         'card',
       );
 
-      expect(result.user_id).toBe(1);
-      expect(result.status).toBe('complete');
+      expect(order).toBeDefined();
+      expect(order.user_id).toBe(user.id);
+      expect(order.status).toBe('complete');
     });
   });
 
+  // ---------------------------------------------------------
+  // addProductsToOrder()
+  // ---------------------------------------------------------
   describe('addProductsToOrder', () => {
     it('should add product to order', async () => {
-      const mockOrderProduct = {
-        id: 1,
-        order_id: 1,
-        product_id: 1,
-        quantity: 2,
-        unit_price: 29.99,
-        created_at: new Date(),
-      };
+      const user = await createTestUser();
+      const product = await createTestProduct();
+      const order = await OrderModel.create(
+        user.id,
+        'John',
+        'Doe',
+        'john@example.com',
+        '123 St',
+        50,
+        'card',
+      );
 
-      mockQuery.mockResolvedValueOnce({ rows: [mockOrderProduct], rowCount: 1 });
+      const item = await OrderModel.addProductsToOrder(order.id, product.id, 2, product.price);
 
-      const result = await OrderModel.addProductsToOrder(1, 1, 2, 29.99);
-
-      expect(result.quantity).toBe(2);
-      expect(result.unit_price).toBe(29.99);
+      expect(item.order_id).toBe(order.id);
+      expect(item.product_id).toBe(product.id);
+      expect(item.quantity).toBe(2);
     });
   });
 
+  // ---------------------------------------------------------
+  // findById()
+  // ---------------------------------------------------------
   describe('findById', () => {
-    it('should find order by id with products', async () => {
-      const mockOrder = {
-        id: 1,
-        user_id: 1,
-        status: 'complete',
-        customer_first_name: 'John',
-        customer_last_name: 'Doe',
-        customer_email: 'john@example.com',
-        customer_address: '123 Main St',
-        payment_method: 'card',
-        created_at: new Date(),
-        updated_at: new Date(),
-      };
+    it('should return order with items', async () => {
+      const user = await createTestUser();
+      const product = await createTestProduct('Apple', 10);
 
-      const mockProducts: Product[] = [];
+      const order = await OrderModel.create(
+        user.id, 'A', 'B', 'a@b.com', 'addr', 10, 'card'
+      );
 
-      mockQuery
-        .mockResolvedValueOnce({ rows: [mockOrder], rowCount: 1 })
-        .mockResolvedValueOnce({ rows: mockProducts, rowCount: 0 });
+      await OrderModel.addProductsToOrder(order.id, product.id, 3, product.price);
 
-      const result = await OrderModel.findById(1);
+      const found = await OrderModel.findById(order.id);
 
-      expect(result).not.toBeNull();
-      expect(result?.id).toBe(1);
+      expect(found).not.toBeNull();
+      expect(found!.id).toBe(order.id);
+      expect(found!.items.length).toBeGreaterThan(0);
+      expect(found!.items[0]!.product_id).toBe(product.id);
     });
   });
 
+  // ---------------------------------------------------------
+  // findByUserId()
+  // ---------------------------------------------------------
   describe('findByUserId', () => {
-    it('should find all orders by user id', async () => {
-      const mockOrders = [
-        {
-          id: 1,
-          user_id: 1,
-          status: 'complete',
-          customer_first_name: 'John',
-          customer_last_name: 'Doe',
-          customer_email: 'john@example.com',
-          customer_address: '123 Main St',
-          payment_method: 'card',
-          created_at: new Date(),
-          updated_at: new Date(),
-        },
-      ];
+    it('should return all orders for user', async () => {
+      const user = await createTestUser();
+      const product = await createTestProduct();
 
-      mockQuery
-        .mockResolvedValueOnce({ rows: mockOrders, rowCount: 1 })
-        .mockResolvedValueOnce({ rows: [], rowCount: 0 });
+      const order = await OrderModel.create(
+        user.id, 'John', 'Doe', 'x@y.com', 'address', 33, 'card'
+      );
 
-      console.log(mockQuery.mock.calls.length);
+      await OrderModel.addProductsToOrder(order.id, product.id, 1, product.price);
 
-      const result = await OrderModel.findByUserId(1);
+      const orders = await OrderModel.findByUserId(user.id);
 
-      expect(result.length).toBe(1);
+      expect(orders.length).toBe(1);
+      expect(orders[0]!.items.length).toBe(1);
     });
   });
 
+  // ---------------------------------------------------------
+  // updateStatus()
+  // ---------------------------------------------------------
   describe('updateStatus', () => {
     it('should update order status', async () => {
-      const mockOrder = {
-        id: 1,
-        user_id: 1,
-        status: 'complete',
-        customer_first_name: 'John',
-        customer_last_name: 'Doe',
-        customer_email: 'john@example.com',
-        customer_address: '123 Main St',
-        payment_method: 'card',
-        created_at: new Date(),
-        updated_at: new Date(),
-      };
+      const user = await createTestUser();
 
-      mockQuery.mockResolvedValueOnce({ rows: [mockOrder], rowCount: 1 });
+      const order = await OrderModel.create(
+        user.id, 'John', 'Doe', 'x@y.com', 'Address', 99, 'card'
+      );
 
-      const result = await OrderModel.updateStatus(1, 'complete');
+      const updated = await OrderModel.updateStatus(order.id, 'active');
 
-      expect(result?.status).toBe('complete');
+      expect(updated).not.toBeNull();
+      expect(updated!.status).toBe('active');
     });
   });
 
+  // ---------------------------------------------------------
+  // delete()
+  // ---------------------------------------------------------
   describe('delete', () => {
     it('should delete order', async () => {
-      mockQuery.mockResolvedValueOnce({ rowCount: 1 });
+      const user = await createTestUser();
+      const order = await OrderModel.create(
+        user.id, 'John', 'Doe', 'x@y.com', 'Address', 50, 'card'
+      );
 
-      const result = await OrderModel.delete(1);
+      const deleted = await OrderModel.delete(order.id);
 
-      expect(result).toBe(true);
+      expect(deleted).toBe(true);
+
+      const check = await OrderModel.findById(order.id);
+      expect(check).toBeNull();
     });
   });
 
+  // ---------------------------------------------------------
+  // getItems()
+  // ---------------------------------------------------------
   describe('getItems', () => {
     it('should return all items for an order', async () => {
-      const mockItems = [
-        {
-          id: 1,
-          order_id: 1,
-          product_id: 10,
-          quantity: 2,
-          unit_price: 19.99,
-          name: 'Product A',
-          description: 'Desc A',
-        },
-        {
-          id: 2,
-          order_id: 1,
-          product_id: 11,
-          quantity: 1,
-          unit_price: 29.99,
-          name: 'Product B',
-          description: 'Desc B',
-        },
-      ];
+      const user = await createTestUser();
+      const product1 = await createTestProduct('A', 10);
+      const product2 = await createTestProduct('B', 20);
 
-      mockQuery.mockResolvedValueOnce({
-        rows: mockItems,
-        rowCount: mockItems.length,
-      });
+      const order = await OrderModel.create(
+        user.id, 'John', 'Doe', 'x@y.com', 'addr', 100, 'card'
+      );
 
-      const result = await OrderModel.getItems(1);
+      await OrderModel.addProductsToOrder(order.id, product1.id, 2, product1.price);
+      await OrderModel.addProductsToOrder(order.id, product2.id, 1, product2.price);
 
-      expect(result.length).toBe(2);
-      expect(result[0]?.product_id).toBe(10);
-      expect(result[1]?.name).toBe('Product B');
+      const items = await OrderModel.getItems(order.id);
+
+      expect(items.length).toBe(2);
+      expect(items[0]!.product_id).toBe(product1.id);
+      expect(items[1]!.product_id).toBe(product2.id);
     });
   });
 
+  // ---------------------------------------------------------
+  // findCompletedByUserId()
+  // ---------------------------------------------------------
   describe('findCompletedByUserId', () => {
-    it('should return completed orders with their items for a given user', async () => {
-      const mockOrders = [
-        {
-          id: 1,
-          user_id: 5,
-          status: 'complete',
-          customer_first_name: 'John',
-          customer_last_name: 'Doe',
-          customer_email: 'john@example.com',
-          customer_address: '123 Main St',
-          payment_method: 'card',
-          created_at: new Date(),
-          updated_at: new Date(),
-        },
-      ];
+    it('should return completed orders with items', async () => {
+      const user = await createTestUser();
+      const product = await createTestProduct();
 
-      const mockItems = [
-        {
-          id: 1,
-          order_id: 1,
-          product_id: 10,
-          quantity: 2,
-          unit_price: 20,
-          name: 'Prod',
-          description: 'desc',
-        },
-      ];
+      const order = await OrderModel.create(
+        user.id, 'F', 'L', 'e@mail.com', 'addr', 33, 'card'
+      );
 
-      mockQuery.mockResolvedValueOnce({
-        rows: mockOrders,
-        rowCount: 1,
-      });
+      await OrderModel.addProductsToOrder(order.id, product.id, 2, product.price);
 
-      OrderModel.getItems = jest
-        .fn<(orderId: number) => Promise<OrderDetail['items']>>()
-        .mockResolvedValueOnce(mockItems);
+      const results = await OrderModel.findCompletedByUserId(user.id);
 
-      const result = await OrderModel.findCompletedByUserId(5);
-
-      expect(result.length).toBe(1);
-      expect(result[0]?.items[0]!.id).toBe(1);
-      expect(result[0]?.items[0]!.product_id).toBe(10);
+      expect(results.length).toBe(1);
+      expect(results[0]!.items[0]!.product_id).toBe(product.id);
     });
   });
 
+  // ---------------------------------------------------------
+  // findAll()
+  // ---------------------------------------------------------
   describe('findAll', () => {
-    it('should return all orders with their items', async () => {
-      const mockOrders = [
-        { id: 1, user_id: 1, status: 'complete', created_at: new Date(), updated_at: new Date() },
-        { id: 2, user_id: 2, status: 'active', created_at: new Date(), updated_at: new Date() },
-      ];
+    it('should return all orders with items', async () => {
+      const user = await createTestUser();
+      const product = await createTestProduct();
 
-      const mockItems1 = [
-        {
-          id: 1,
-          order_id: 1,
-          product_id: 11,
-          quantity: 1,
-          unit_price: 10,
-          name: 'Item A',
-          description: '',
-        },
-      ];
+      const order1 = await OrderModel.create(
+        user.id, 'J', 'D', 'a@b.c', 'addr', 55, 'card'
+      );
+      await OrderModel.addProductsToOrder(order1.id, product.id, 1, product.price);
 
-      const mockItems2 = [
-        {
-          id: 2,
-          order_id: 2,
-          product_id: 22,
-          quantity: 3,
-          unit_price: 15,
-          name: 'Item B',
-          description: '',
-        },
-      ];
+      const order2 = await OrderModel.create(
+        user.id, 'J2', 'D2', 'c@d.e', 'addr', 44, 'card'
+      );
+      await OrderModel.addProductsToOrder(order2.id, product.id, 3, product.price);
 
-      mockQuery.mockResolvedValueOnce({
-        rows: mockOrders,
-        rowCount: 2,
-      });
+      const all = await OrderModel.findAll();
 
-      OrderModel.getItems = jest
-        .fn<(orderId: number) => Promise<OrderDetail['items']>>()
-        .mockResolvedValueOnce(mockItems1)
-        .mockResolvedValueOnce(mockItems2);
-
-      const result = await OrderModel.findAll();
-
-      expect(result.length).toBe(2);
-      expect(result[0]?.items[0]!.product_id).toBe(11);
+      expect(all.length).toBe(2);
+      expect(all[0]!.items.length).toBeGreaterThanOrEqual(1);
     });
   });
 });
