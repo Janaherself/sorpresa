@@ -3,7 +3,7 @@
 Welcome to Sorpresa, the backend API that powers your e-commerce dreams, nightmares, and everything in between.
 Built with Node.js, TypeScript, Express, PostgreSQL, and enough caffeine to fuel a small city.
 
-This README will walk you through installation, setup, running scripts, database configuration, and how not to turn using this API into the worst surprize ever.
+This README will walk you through installation, setup, running scripts, database configuration, and how not to turn using this API into the worst surprise ever.
 
 The REQUIREMENTS.md will have all the API routes alongside a detailed database schema, don't forget to check it out!
 
@@ -117,8 +117,8 @@ This project comes with a couble of scripts:
 | Script          | Command                                                                                 | Description                                               |
 | --------------- | --------------------------------------------------------------------------------------- | --------------------------------------------------------- |
 | start           | nodemon dist/server.js                                                                  | Runs the built server with auto-reload                    |
-| dev             | ts-node src/server.ts | Runs the server in development mode (TypeScript directly) |
-| format | prettier . --write | Formats the code base with prettier
+| dev             | ts-node src/server.ts                                                                   | Runs the server in development mode (TypeScript directly) |
+| format          | prettier . --write                                                                      | Formats the code base with prettier                       |
 | build           | tsc                                                                                     | Compiles TypeScript to JavaScript                         |
 | test            | node --experimental-vm-modules node_modules/jest/bin/jest.js                            | Runs Jest tests once                                      |
 | test:watch      | node --experimental-vm-modules node_modules/jest/bin/jest.js --watch                    | Continuous test mode                                      |
