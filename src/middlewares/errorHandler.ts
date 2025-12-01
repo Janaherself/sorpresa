@@ -1,0 +1,7 @@
+import type { Request, Response, NextFunction } from 'express';
+
+export default (err: any, _req: Request, res: Response, _next: NextFunction) => {
+  console.error(err);
+  const message = err.message ?? 'Internal server error';
+  res.status(500).json({ message });
+};
