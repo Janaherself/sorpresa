@@ -14,8 +14,8 @@
     "build": "tsc",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
-    "db:migrate:up": "db-migrate up --config database.cjs --env dev --verbose --migrations-dir ./migrations",
-    "db:migrate:down": "db-migrate down --config database.cjs --env dev --verbose --migrations-dir ./migrations",
+    "db:migrate:up": "db-migrate up --config database.cjs --env test --verbose --migrations-dir ./migrations",
+    "db:migrate:down": "db-migrate down --config database.cjs --env test --verbose --migrations-dir ./migrations",
     "db:seed": "node dist/database/seed.js"
   },
   "repository": {

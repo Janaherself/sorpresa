@@ -3,14 +3,14 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const { DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD, NODE_ENV } = process.env;
+const { DB_HOST, DB_PORT, DB_NAME, TEST_DB_NAME, DB_USER, DB_PASSWORD, NODE_ENV } = process.env;
 
 const pool = new Pool({
-  host: DB_HOST || 'localhost',
-  port: parseInt(DB_PORT || '5432', 10),
-  database: DB_NAME || 'sorpresa_db',
-  user: DB_USER || 'sorpresa_user',
-  password: DB_PASSWORD || 'sorpresa_password',
+  host: DB_HOST,
+  port: parseInt(DB_PORT!, 10),
+  database: NODE_ENV === 'test' ? TEST_DB_NAME : DB_NAME,
+  user: DB_USER,
+  password: DB_PASSWORD,
 });
 
 pool.on('error', (err: Error) => {

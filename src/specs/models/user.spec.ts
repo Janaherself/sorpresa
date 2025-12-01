@@ -1,258 +1,256 @@
-import { jest } from '@jest/globals';
-
-jest.unstable_mockModule('../../config/database.js', () => ({
-  query: jest.fn(),
-}));
-
-const { query } = await import('../../config/database.js');
-const { UserModel } = await import('../../models/user.js');
-import bcrypt from 'bcrypt';
+import { query } from '../../config/database.js';
+import { UserModel } from '../../models/user.js';
+import { resetTestDatabase, closeTestDatabase } from '../setupTestDB.js';
 
 describe('UserModel', () => {
-  const mockQuery = query as jest.MockedFunction<typeof query>;
+  beforeAll(async () => {
+  await resetTestDatabase();
+});
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
+beforeEach(async () => {
+  // Clean the entire DB before EVERY test
+  await query(`
+    TRUNCATE TABLE 
+      order_items,
+      orders,
+      products,
+      users
+    RESTART IDENTITY CASCADE;
+  `);
+});
 
-  describe('create', () => {
-    it('should create a new user with hashed password', async () => {
-      const mockUser = {
-        id: 1,
-        first_name: 'John',
-        last_name: 'Doe',
-        email: 'john@example.com',
-        password_hash: 'hashedpassword',
-        created_at: new Date(),
-        updated_at: new Date(),
-      };
+afterAll(async () => {
+  await closeTestDatabase();
+});
 
-      mockQuery.mockResolvedValueOnce({ rows: [mockUser], rowCount: 1 });
+  // ------------------------------------------------------------
+  // CREATE
+  // ------------------------------------------------------------
+  describe('create()', () => {
+    it('creates a new user and hashes the password', async () => {
+      const user = await UserModel.create(
+        'John',
+        'Doe',
+        'john@example.com',
+        'password123'
+      );
 
-      const result = await UserModel.create('John', 'Doe', 'john@example.com', 'password123');
-
-      expect(result.email).toBe('john@example.com');
-      expect(result.password_hash).not.toBe('password123');
+      expect(user).toBeDefined();
+      expect(user.id).toBe(1);
+      expect(user.email).toBe('john@example.com');
+      expect(user.password_hash).not.toBe('password123'); // ensure hashed
     });
   });
 
-  describe('authenticate', () => {
-    it('should authenticate user with correct password', async () => {
-      const mockUser = {
-        id: 1,
-        first_name: 'John',
-        last_name: 'Doe',
-        email: 'john@example.com',
-        password_hash: '$2b$10$hashedpassword',
-        created_at: new Date(),
-        updated_at: new Date(),
-      };
-
-      mockQuery.mockResolvedValueOnce({ rows: [mockUser], rowCount: 1 });
-
-      jest
-        .spyOn(bcrypt, 'compare')
-        .mockImplementation(() => Promise.resolve(true) as Promise<boolean>);
-
-      const result = await UserModel.authenticate('john@example.com', 'password123');
-
-      expect(result).not.toBeNull();
+  // ------------------------------------------------------------
+  // AUTHENTICATE
+  // ------------------------------------------------------------
+  describe('authenticate()', () => {
+    beforeEach(async () => {
+      await UserModel.create(
+        'Alice',
+        'Smith',
+        'alice@example.com',
+        'mypassword'
+      );
     });
 
-    it('should not authenticate user with incorrect password', async () => {
-      const mockUser = {
-        id: 1,
-        first_name: 'John',
-        last_name: 'Doe',
-        email: 'john@example.com',
-        password_hash: '$2b$10$hashedpassword', // mocked bcrypt hash
-        created_at: new Date(),
-        updated_at: new Date(),
-      };
+    it('authenticates a user with the correct password', async () => {
+      const user = await UserModel.authenticate(
+        'alice@example.com',
+        'mypassword'
+      );
 
-      mockQuery.mockResolvedValueOnce({ rows: [mockUser], rowCount: 1 });
+      expect(user).not.toBeNull();
+      expect(user?.email).toBe('alice@example.com');
+    });
 
-      // Mock bcrypt.compare to return false for incorrect password
-      jest
-        .spyOn(bcrypt, 'compare')
-        .mockImplementation(() => Promise.resolve(false) as Promise<boolean>);
+    it('returns null for invalid password', async () => {
+      const user = await UserModel.authenticate(
+        'alice@example.com',
+        'wrong'
+      );
 
-      const result = await UserModel.authenticate('john@example.com', 'wrongpassword');
+      expect(user).toBeNull();
+    });
 
+    it('returns null if user does not exist', async () => {
+      const user = await UserModel.authenticate(
+        'notfound@example.com',
+        'anything'
+      );
+
+      expect(user).toBeNull();
+    });
+  });
+
+  // ------------------------------------------------------------
+  // FIND BY ID
+  // ------------------------------------------------------------
+  describe('findById()', () => {
+    it('returns a user when found', async () => {
+      const created = await UserModel.create(
+        'Bob',
+        'Marley',
+        'bob@example.com',
+        'secret'
+      );
+
+      const user = await UserModel.findById(created.id);
+
+      expect(user).not.toBeNull();
+      expect(user?.email).toBe('bob@example.com');
+    });
+
+    it('returns null when user does not exist', async () => {
+      const user = await UserModel.findById(999);
+      expect(user).toBeNull();
+    });
+  });
+
+  // ------------------------------------------------------------
+  // FIND BY EMAIL
+  // ------------------------------------------------------------
+  describe('findByEmail()', () => {
+    it('returns a user when found', async () => {
+      await UserModel.create(
+        'Karen',
+        'Lee',
+        'karen@example.com',
+        'pass'
+      );
+
+      const user = await UserModel.findByEmail('karen@example.com');
+
+      expect(user).not.toBeNull();
+      expect(user?.email).toBe('karen@example.com');
+    });
+
+    it('returns null when not found', async () => {
+      const user = await UserModel.findByEmail('nope@example.com');
+      expect(user).toBeNull();
+    });
+  });
+
+  // ------------------------------------------------------------
+  // FIND ALL
+  // ------------------------------------------------------------
+  describe('findAll()', () => {
+    it('returns all users', async () => {
+      await UserModel.create('A', 'A', 'a@example.com', 'a');
+      await UserModel.create('B', 'B', 'b@example.com', 'b');
+
+      const users = await UserModel.findAll();
+
+      expect(users.length).toBe(2);
+      expect(users[0]).toHaveProperty('id');
+      expect(users[0]).not.toHaveProperty('password_hash'); // not selected by query
+    });
+  });
+
+  // ------------------------------------------------------------
+  // UPDATE
+  // ------------------------------------------------------------
+  describe('update()', () => {
+    it('updates an existing user', async () => {
+      const created = await UserModel.create(
+        'Old',
+        'Name',
+        'old@example.com',
+        'pw'
+      );
+
+      const updated = await UserModel.update(
+        created.id,
+        'NewName',
+        'Updated'
+      );
+
+      expect(updated).not.toBeNull();
+      expect(updated?.first_name).toBe('NewName');
+    });
+
+    it('returns null if user does not exist', async () => {
+      const result = await UserModel.update(999, 'X', 'Y');
+      expect(result).toBeNull();
+    });
+  });
+
+  // ------------------------------------------------------------
+  // DELETE
+  // ------------------------------------------------------------
+  describe('delete()', () => {
+    it('deletes a user', async () => {
+      const created = await UserModel.create(
+        'Del',
+        'User',
+        'del@example.com',
+        'pw'
+      );
+
+      const ok = await UserModel.delete(created.id);
+
+      expect(ok).toBe(true);
+
+      const result = await UserModel.findById(created.id);
       expect(result).toBeNull();
     });
 
-    it('should return null for non-existent user', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 0 });
-
-      const result = await UserModel.authenticate('nonexistent@example.com', 'password123');
-
-      expect(result).toBeNull();
+    it('returns false if user not found', async () => {
+      const ok = await UserModel.delete(12345);
+      expect(ok).toBe(false);
     });
   });
 
-  describe('findById', () => {
-    it('should find user by id', async () => {
-      const mockUser = {
-        id: 1,
-        first_name: 'John',
-        last_name: 'Doe',
-        email: 'john@example.com',
-        password_digest: 'hashedpassword',
-        created_at: new Date(),
-        updated_at: new Date(),
-      };
+  // ------------------------------------------------------------
+  // FIND BY ID WITH PURCHASES
+  // ------------------------------------------------------------
+  describe('findByIdWithPurchases()', () => {
+    it('returns user with purchase list', async () => {
+      // Create a user
+      const user = await UserModel.create(
+        'Buyer',
+        'Test',
+        'buyer@example.com',
+        'pw'
+      );
 
-      mockQuery.mockResolvedValueOnce({ rows: [mockUser], rowCount: 1 });
+      // Create a product
+      const productResult = await query(
+        `INSERT INTO products (name, price, description, stock, category, created_at, updated_at)
+         VALUES ('TestProd', 10.5, 'desc', 100, 'TestCat', NOW(), NOW())
+         RETURNING *`
+      );
+      const product = productResult.rows[0];
 
-      const result = await UserModel.findById(1);
+      // Create order
+      const orderResult = await query(
+        `INSERT INTO orders (user_id, status, customer_first_name, customer_last_name, customer_email, customer_address, total_amount,  payment_method, created_at)
+         VALUES ($1, 'complete', 'Buyer', 'Test', 'buyer@example.com', '123 Main St', 10.5, 'card', NOW())
+         RETURNING *`,
+        [user.id]
+      );
+      const order = orderResult.rows[0];
+
+      // Add order item
+      await query(
+        `INSERT INTO order_items (order_id, product_id, quantity, unit_price)
+         VALUES ($1, $2, 1, 10.5)`,
+        [order.id, product.id]
+      );
+
+      // Run the method
+      const result = await UserModel.findByIdWithPurchases(user.id);
 
       expect(result).not.toBeNull();
-      expect(result?.id).toBe(1);
-    });
-
-    it('should return null if user not found', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 0 });
-
-      const result = await UserModel.findById(999);
-
-      expect(result).toBeNull();
-    });
-  });
-
-  describe('findByEmail', () => {
-    it('should find user by email', async () => {
-      const mockUser = {
-        id: 1,
-        first_name: 'John',
-        last_name: 'Doe',
-        email: 'john@example.com',
-        password_hash: 'hashedpassword',
-        created_at: new Date(),
-        updated_at: new Date(),
-      };
-
-      mockQuery.mockResolvedValueOnce({ rows: [mockUser], rowCount: 1 });
-
-      const result = await UserModel.findByEmail('john@example.com');
-
-      expect(result).not.toBeNull();
-      expect(result?.email).toBe('john@example.com');
-    });
-  });
-
-  describe('findAll', () => {
-    it('should return all users', async () => {
-      const mockUsers = [
-        {
-          id: 1,
-          first_name: 'John',
-          last_name: 'Doe',
-          email: 'john@example.com',
-          created_at: new Date(),
-          updated_at: new Date(),
-        },
-        {
-          id: 2,
-          first_name: 'Jane',
-          last_name: 'Smith',
-          email: 'jane@example.com',
-          created_at: new Date(),
-          updated_at: new Date(),
-        },
-      ];
-
-      mockQuery.mockResolvedValueOnce({ rows: mockUsers, rowCount: 2 });
-
-      const result = await UserModel.findAll();
-
-      expect(result.length).toBe(2);
-      expect(result[0]!.email).toBe('john@example.com');
-    });
-  });
-
-  describe('update', () => {
-    it('should update user information', async () => {
-      const mockUser = {
-        id: 1,
-        first_name: 'Johnny',
-        last_name: 'Doe',
-        email: 'john@example.com',
-        password_digest: 'hashedpassword',
-        created_at: new Date(),
-        updated_at: new Date(),
-      };
-
-      mockQuery.mockResolvedValueOnce({ rows: [mockUser], rowCount: 1 });
-
-      const result = await UserModel.update(1, 'Johnny', 'Doe');
-
-      expect(result).not.toBeNull();
-      expect(result?.first_name).toBe('Johnny');
-    });
-  });
-
-  describe('delete', () => {
-    it('should delete user', async () => {
-      mockQuery.mockResolvedValueOnce({ rowCount: 1 });
-
-      const result = await UserModel.delete(1);
-
-      expect(result).toBe(true);
-    });
-
-    it('should return false if user not found', async () => {
-      mockQuery.mockResolvedValueOnce({ rowCount: 0 });
-
-      const result = await UserModel.delete(999);
-
-      expect(result).toBe(false);
-    });
-  });
-
-  describe('findByIdWithPurchases', () => {
-    it('should return user with recent purchases', async () => {
-      const mockUser = {
-        id: 1,
-        first_name: 'John',
-        last_name: 'Doe',
-        email: 'john@example.com',
-        created_at: new Date(),
-        updated_at: new Date(),
-      };
-
-      const mockPurchases = [
-        {
-          id: 101,
-          status: 'complete',
-          customer_first_name: 'John',
-          customer_last_name: 'Doe',
-          total_amount: 99.99,
-          created_at: new Date(),
-          products: [
-            { id: 1, name: 'Product A', quantity: 2, unit_price: 10 },
-            { id: 2, name: 'Product B', quantity: 1, unit_price: 79.99 },
-          ],
-        },
-      ];
-
-      mockQuery.mockResolvedValueOnce({ rows: [mockUser], rowCount: 1 });
-      mockQuery.mockResolvedValueOnce({ rows: mockPurchases, rowCount: mockPurchases.length });
-
-      const result = await UserModel.findByIdWithPurchases(1);
-
-      expect(result).not.toBeNull();
-      expect(result?.user.id).toBe(1);
+      expect(result?.user.email).toBe('buyer@example.com');
       expect(result?.purchases.length).toBe(1);
-      expect(result?.purchases[0]?.products.length).toBe(2);
-      expect(result?.purchases[0]?.products[0]?.name).toBe('Product A');
+      expect(result?.purchases[0]!.products.length).toBe(1);
+      expect(result?.purchases[0]!.products[0]!.id).toBe(product.id);
     });
 
-    it('should return null if user does not exist', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 0 });
-
+    it('returns null for non-existing user', async () => {
       const result = await UserModel.findByIdWithPurchases(999);
-
       expect(result).toBeNull();
     });
   });
