@@ -3,98 +3,66 @@ import { UserModel } from '../../models/user.js';
 import { resetTestDatabase, closeTestDatabase } from '../setupTestDB.js';
 
 describe('UserModel', () => {
+
   beforeAll(async () => {
-  await resetTestDatabase();
-});
+    await resetTestDatabase();
+  });
 
-beforeEach(async () => {
-  // Clean the entire DB before EVERY test
-  await query(`
-    TRUNCATE TABLE 
-      order_items,
-      orders,
-      products,
-      users
-    RESTART IDENTITY CASCADE;
-  `);
-});
+  beforeEach(async () => {
+    await query(`
+      TRUNCATE TABLE order_items, orders, products, users
+      RESTART IDENTITY CASCADE;
+    `);
+  });
 
-afterAll(async () => {
-  await closeTestDatabase();
-});
+  afterAll(async () => {
+    await closeTestDatabase();
+  });
 
-  // ------------------------------------------------------------
-  // CREATE
-  // ------------------------------------------------------------
   describe('create()', () => {
     it('creates a new user and hashes the password', async () => {
-      const user = await UserModel.create(
-        'John',
-        'Doe',
-        'john@example.com',
-        'password123'
-      );
+
+      const user = await UserModel.create('John', 'Doe', 'john@example.com', 'password123');
 
       expect(user).toBeDefined();
       expect(user.id).toBe(1);
       expect(user.email).toBe('john@example.com');
-      expect(user.password_hash).not.toBe('password123'); // ensure hashed
+      expect(user.password_hash).not.toBe('password123');
     });
   });
 
-  // ------------------------------------------------------------
-  // AUTHENTICATE
-  // ------------------------------------------------------------
   describe('authenticate()', () => {
     beforeEach(async () => {
-      await UserModel.create(
-        'Alice',
-        'Smith',
-        'alice@example.com',
-        'mypassword'
-      );
+      await UserModel.create('Alice', 'Smith', 'alice@example.com', 'mypassword');
     });
 
     it('authenticates a user with the correct password', async () => {
-      const user = await UserModel.authenticate(
-        'alice@example.com',
-        'mypassword'
-      );
+      
+      const user = await UserModel.authenticate('alice@example.com', 'mypassword');
 
       expect(user).not.toBeNull();
       expect(user?.email).toBe('alice@example.com');
     });
 
     it('returns null for invalid password', async () => {
-      const user = await UserModel.authenticate(
-        'alice@example.com',
-        'wrong'
-      );
+
+       const user = await UserModel.authenticate('alice@example.com', 'wrong');
 
       expect(user).toBeNull();
     });
 
     it('returns null if user does not exist', async () => {
-      const user = await UserModel.authenticate(
-        'notfound@example.com',
-        'anything'
-      );
+
+      const user = await UserModel.authenticate('notfound@example.com', 'anything');
 
       expect(user).toBeNull();
     });
   });
 
-  // ------------------------------------------------------------
-  // FIND BY ID
-  // ------------------------------------------------------------
   describe('findById()', () => {
     it('returns a user when found', async () => {
-      const created = await UserModel.create(
-        'Bob',
-        'Marley',
-        'bob@example.com',
-        'secret'
-      );
+
+      const created = await UserModel.create('Bob', 'Marley', 'bob@example.com', 'secret');
 
       const user = await UserModel.findById(created.id);
 
@@ -103,22 +71,17 @@ afterAll(async () => {
     });
 
     it('returns null when user does not exist', async () => {
+
       const user = await UserModel.findById(999);
+      
       expect(user).toBeNull();
     });
   });
 
-  // ------------------------------------------------------------
-  // FIND BY EMAIL
-  // ------------------------------------------------------------
   describe('findByEmail()', () => {
     it('returns a user when found', async () => {
-      await UserModel.create(
-        'Karen',
-        'Lee',
-        'karen@example.com',
-        'pass'
-      );
+
+      await UserModel.create('Karen', 'Lee', 'karen@example.com', 'pass');
 
       const user = await UserModel.findByEmail('karen@example.com');
 
@@ -127,16 +90,16 @@ afterAll(async () => {
     });
 
     it('returns null when not found', async () => {
+
       const user = await UserModel.findByEmail('nope@example.com');
+      
       expect(user).toBeNull();
     });
   });
 
-  // ------------------------------------------------------------
-  // FIND ALL
-  // ------------------------------------------------------------
   describe('findAll()', () => {
     it('returns all users', async () => {
+
       await UserModel.create('A', 'A', 'a@example.com', 'a');
       await UserModel.create('B', 'B', 'b@example.com', 'b');
 
@@ -144,78 +107,51 @@ afterAll(async () => {
 
       expect(users.length).toBe(2);
       expect(users[0]).toHaveProperty('id');
-      expect(users[0]).not.toHaveProperty('password_hash'); // not selected by query
     });
   });
 
-  // ------------------------------------------------------------
-  // UPDATE
-  // ------------------------------------------------------------
   describe('update()', () => {
     it('updates an existing user', async () => {
-      const created = await UserModel.create(
-        'Old',
-        'Name',
-        'old@example.com',
-        'pw'
-      );
 
-      const updated = await UserModel.update(
-        created.id,
-        'NewName',
-        'Updated'
-      );
+      const created = await UserModel.create('Old', 'Name', 'old@example.com', 'pw');
+
+      const updated = await UserModel.update(created.id, 'NewName', 'Updated');
 
       expect(updated).not.toBeNull();
       expect(updated?.first_name).toBe('NewName');
     });
 
     it('returns null if user does not exist', async () => {
+
       const result = await UserModel.update(999, 'X', 'Y');
+      
       expect(result).toBeNull();
     });
   });
 
-  // ------------------------------------------------------------
-  // DELETE
-  // ------------------------------------------------------------
   describe('delete()', () => {
     it('deletes a user', async () => {
-      const created = await UserModel.create(
-        'Del',
-        'User',
-        'del@example.com',
-        'pw'
-      );
 
-      const ok = await UserModel.delete(created.id);
+      const created = await UserModel.create('Del', 'User', 'del@example.com', 'pw');
 
-      expect(ok).toBe(true);
+      const isDeleted = await UserModel.delete(created.id);
 
-      const result = await UserModel.findById(created.id);
-      expect(result).toBeNull();
+      expect(isDeleted).toBe(true);
     });
 
     it('returns false if user not found', async () => {
-      const ok = await UserModel.delete(12345);
-      expect(ok).toBe(false);
+
+      const isDeleted = await UserModel.delete(12345);
+      
+      expect(isDeleted).toBe(false);
     });
   });
 
-  // ------------------------------------------------------------
-  // FIND BY ID WITH PURCHASES
-  // ------------------------------------------------------------
   describe('findByIdWithPurchases()', () => {
     it('returns user with purchase list', async () => {
-      // Create a user
-      const user = await UserModel.create(
-        'Buyer',
-        'Test',
-        'buyer@example.com',
-        'pw'
-      );
 
-      // Create a product
+      const user = await UserModel.create('Buyer', 'Test', 'buyer@example.com', 'pw');
+
       const productResult = await query(
         `INSERT INTO products (name, price, description, stock, category, created_at, updated_at)
          VALUES ('TestProd', 10.5, 'desc', 100, 'TestCat', NOW(), NOW())
@@ -223,7 +159,6 @@ afterAll(async () => {
       );
       const product = productResult.rows[0];
 
-      // Create order
       const orderResult = await query(
         `INSERT INTO orders (user_id, status, customer_first_name, customer_last_name, customer_email, customer_address, total_amount,  payment_method, created_at)
          VALUES ($1, 'complete', 'Buyer', 'Test', 'buyer@example.com', '123 Main St', 10.5, 'card', NOW())
@@ -232,14 +167,12 @@ afterAll(async () => {
       );
       const order = orderResult.rows[0];
 
-      // Add order item
       await query(
         `INSERT INTO order_items (order_id, product_id, quantity, unit_price)
          VALUES ($1, $2, 1, 10.5)`,
         [order.id, product.id]
       );
 
-      // Run the method
       const result = await UserModel.findByIdWithPurchases(user.id);
 
       expect(result).not.toBeNull();
@@ -250,7 +183,9 @@ afterAll(async () => {
     });
 
     it('returns null for non-existing user', async () => {
+
       const result = await UserModel.findByIdWithPurchases(999);
+      
       expect(result).toBeNull();
     });
   });

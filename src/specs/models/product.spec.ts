@@ -2,39 +2,27 @@ import { query } from "../../config/database.js";
 import { ProductModel } from "../../models/product.js";
 import { resetTestDatabase, closeTestDatabase } from '../setupTestDB.js';
 
-describe("ProductModel (Real DB Tests)", () => {
+describe("ProductModel", () => {
+
   beforeAll(async () => {
-  await resetTestDatabase();
-});
+    await resetTestDatabase();
+  });
 
-beforeEach(async () => {
-  // Clean the entire DB before EVERY test
-  await query(`
-    TRUNCATE TABLE 
-      order_items,
-      orders,
-      products,
-      users
-    RESTART IDENTITY CASCADE;
-  `);
-});
+  beforeEach(async () => {
+    await query(`
+      TRUNCATE TABLE order_items, orders, products, users
+      RESTART IDENTITY CASCADE;
+    `);
+  });
 
-afterAll(async () => {
-  await closeTestDatabase();
-});
+  afterAll(async () => {
+    await closeTestDatabase();
+  });
 
-  // -----------------------
-  // CREATE
-  // -----------------------
   describe("create", () => {
     it("should create a new product", async () => {
-      const product = await ProductModel.create(
-        "Mystery Box",
-        "A surprise box",
-        29.99,
-        5,
-        "mystery"
-      );
+
+      const product = await ProductModel.create("Mystery Box", "A surprise box", 20.00, 5, "mystery");
 
       expect(product).toBeDefined();
       expect(product.name).toBe("Mystery Box");
@@ -42,11 +30,9 @@ afterAll(async () => {
     });
   });
 
-  // -----------------------
-  // FIND ALL
-  // -----------------------
   describe("findAll", () => {
     it("should return all products", async () => {
+
       await ProductModel.create("A", "a", 10, 1, "cat");
       await ProductModel.create("B", "b", 20, 2, "cat");
 
@@ -57,11 +43,9 @@ afterAll(async () => {
     });
   });
 
-  // -----------------------
-  // FIND BY ID
-  // -----------------------
   describe("findById", () => {
     it("should return product by ID", async () => {
+
       const p = await ProductModel.create("A", "a", 10, 1, "cat");
 
       const found = await ProductModel.findById(p.id!);
@@ -71,16 +55,16 @@ afterAll(async () => {
     });
 
     it("should return null for non-existing ID", async () => {
+
       const result = await ProductModel.findById(9999);
+
       expect(result).toBeNull();
     });
   });
 
-  // -----------------------
-  // FIND BY CATEGORY
-  // -----------------------
   describe("findByCategory", () => {
     it("should return products matching the category", async () => {
+
       await ProductModel.create("Mystery A", "a", 10, 1, "mystery");
       await ProductModel.create("Mystery B", "b", 20, 2, "mystery");
       await ProductModel.create("Other", "c", 30, 3, "other");
@@ -92,33 +76,9 @@ afterAll(async () => {
     });
   });
 
-  // -----------------------
-  // TOP POPULAR
-  // -----------------------
   describe("findTopPopular", () => {
-    beforeAll(async () => {
-      await query(`
-        CREATE TABLE IF NOT EXISTS orders (
-          id SERIAL PRIMARY KEY,
-          user_id INT,
-          status TEXT,
-          customer_first_name TEXT,
-          customer_last_name TEXT,
-          total_amount NUMERIC,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS order_items (
-          id SERIAL PRIMARY KEY,
-          order_id INT REFERENCES orders(id),
-          product_id INT REFERENCES products(id),
-          quantity INT NOT NULL,
-          unit_price NUMERIC NOT NULL
-        );
-      `);
-    });
-
     it("should return up to 5 most popular products", async () => {
+
       const p1 = await ProductModel.create("A", "a", 10, 10, "cat");
       const p2 = await ProductModel.create("B", "b", 20, 10, "cat");
 
@@ -147,46 +107,29 @@ afterAll(async () => {
     });
   });
 
-  // -----------------------
-  // UPDATE
-  // -----------------------
   describe("update", () => {
     it("should update a product", async () => {
+
       const p = await ProductModel.create("A", "a", 10, 1, "cat");
 
-      const updated = await ProductModel.update(
-        p.id!,
-        "Updated",
-        "New desc",
-        99.99,
-        20,
-        "updated"
-      );
+      const updated = await ProductModel.update(p.id!, "Updated", "New desc", 100, 20, "updated");
 
       expect(updated).not.toBeNull();
       expect(updated!.name).toBe("Updated");
-      expect(Number(updated!.price)).toBe(99.99);
+      expect(Number(updated!.price)).toBe(100);
     });
 
     it("should return null when updating non-existing product", async () => {
-      const result = await ProductModel.update(
-        9999,
-        "X",
-        "Y",
-        1,
-        1,
-        "cat"
-      );
+
+      const result = await ProductModel.update(9999, "X", "Y", 1, 1, "cat");
 
       expect(result).toBeNull();
     });
   });
 
-  // -----------------------
-  // DELETE
-  // -----------------------
   describe("delete", () => {
     it("should delete a product", async () => {
+
       const p = await ProductModel.create("A", "a", 10, 1, "cat");
 
       const result = await ProductModel.delete(p.id!);
@@ -195,17 +138,16 @@ afterAll(async () => {
     });
 
     it("should return false if product does not exist", async () => {
+
       const result = await ProductModel.delete(999);
 
       expect(result).toBe(false);
     });
   });
 
-  // -----------------------
-  // DECREASE STOCK
-  // -----------------------
   describe("decreaseStock", () => {
     it("should decrease stock if enough quantity exists", async () => {
+
       const p = await ProductModel.create("A", "a", 10, 5, "cat");
 
       const result = await ProductModel.decreaseStock(p.id!, 1);
@@ -217,6 +159,7 @@ afterAll(async () => {
     });
 
     it("should return false if insufficient stock", async () => {
+
       const p = await ProductModel.create("A", "a", 10, 1, "cat");
 
       const result = await ProductModel.decreaseStock(p.id!, 10);
