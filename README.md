@@ -47,26 +47,7 @@ The REQUIREMENTS.md will have all the API routes alongside a detailed database s
 
 ### 🗄️ Database Setup (PostgreSQL)
 
-Sorpresa uses PostgreSQL — because real databases use ducks as mascots.
-
-1️⃣ **Create your databases (normal + test)**
-
-- `CREATE DATABASE sorpresa;`
-- `CREATE DATABASE sorpresa_test;`
-
-2️⃣ **Create a user (optional but highly recommended)**
-
-- `CREATE USER sorpresa_user WITH PASSWORD 'supersecurepassword'`
-- `GRANT ALL PRIVILEGES ON DATABASE sorpresa TO sorpresa_user;`
-- `GRANT ALL PRIVILEGES ON DATABASE sorpresa_test TO sorpresa_user;`
-
-3️⃣ **Run migrations**
-
-- `npm run db:migrate:up`
-
-4️⃣ **(Optional) Seed the database**
-
-- `npm run db:seed`
+Sorpresa uses an instance of PostgreSQL on the cloud — so you don't need to set up anything!
 
 ---
 
@@ -75,33 +56,29 @@ Sorpresa uses PostgreSQL — because real databases use ducks as mascots.
 Create a .env file in the project root.  
 Here’s a comfy template to get you started:
 
-##### **_Server Configuration_**
+##### # **_Server Configuration_**
 
 NODE_ENV=development  
 SERVER_PORT=3000
 
-##### **_Postgres_**
+##### # **_Postgres_**
 
-DB_HOST=localhost  
-DB_PORT=5432  
-DB_NAME=  
-DB_USER=  
-DB_PASSWORD=
+DB_URL=
 
-##### **_Test DB (only used during tests)_**
+##### # **_Test DB (only used during tests)_**
 
-TEST_DB_NAME=
+TEST_DB_URL=
 
-##### **_JWT Configuration_**
+##### # **_JWT Configuration_**
 
 JWT_SECRET=  
 JWT_EXPIRATION=
 
-##### **_CORS Configuration_**
+##### # **_CORS Configuration_**
 
 CORS_ORIGIN=http://localhost:4200
 
-##### **_Bcrypt Configuration_**
+##### # **_Bcrypt Configuration_**
 
 BCRYPT_ROUNDS=10
 
@@ -114,17 +91,19 @@ Don't worry — happens to the best of us._
 
 This project comes with a couble of scripts:
 
-| Script          | Command                                                                                 | Description                                               |
-| --------------- | --------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| start           | nodemon dist/server.js                                                                  | Runs the built server with auto-reload                    |
-| dev             | ts-node src/server.ts                                                                   | Runs the server in development mode (TypeScript directly) |
-| format          | prettier . --write                                                                      | Formats the code base with prettier                       |
-| build           | tsc                                                                                     | Compiles TypeScript to JavaScript                         |
-| test            | node --experimental-vm-modules node_modules/jest/bin/jest.js                            | Runs Jest tests once                                      |
-| test:watch      | node --experimental-vm-modules node_modules/jest/bin/jest.js --watch                    | Continuous test mode                                      |
-| db:migrate:up   | db-migrate up --config database.cjs --env dev --verbose --migrations-dir ./migrations   | Applies migrations                                        |
-| db:migrate:down | db-migrate down --config database.cjs --env dev --verbose --migrations-dir ./migrations | Rolls back last migration                                 |
-| db:seed         | node dist/database/seed.js | Seeds the database  |
+| Script               | Command                                                                                  | Description                                               |
+| -------------------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| start                | nodemon dist/server.js                                                                   | Runs the built server with auto-reload                    |
+| dev                  | ts-node src/server.ts                                                                    | Runs the server in development mode (TypeScript directly) |
+| format               | prettier . --write                                                                       | Formats the code base with prettier                       |
+| build                | tsc                                                                                      | Compiles TypeScript to JavaScript                         |
+| test                 | node --experimental-vm-modules node_modules/jest/bin/jest.js                             | Runs Jest tests once                                      |
+| test:watch           | node --experimental-vm-modules node_modules/jest/bin/jest.js --watch                     | Continuous test mode                                      |
+| db:migrate:up        | db-migrate up --config database.cjs --env dev --verbose --migrations-dir ./migrations    | Applies migrations on main database                       |
+| db:migrate:down      | db-migrate down --config database.cjs --env dev --verbose --migrations-dir ./migrations  | Rolls back last migration on the main database            |
+| db:migrate:up:test   | db-migrate up --config database.cjs --env test --verbose --migrations-dir ./migrations   | Applies migrations on the test database                   |
+| db:migrate:down:test | db-migrate down --config database.cjs --env test --verbose --migrations-dir ./migrations | Rolls back last migration on the test database            |
+| db:seed              | node dist/database/seed.js                                                               | Seeds the database                                        |
 
 ---
 
