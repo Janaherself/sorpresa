@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+  },
+  "exclude": [
+    // Exclude test files and node_modules for production build
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "src/specs",
+    "node_modules"
+  ]
+}
