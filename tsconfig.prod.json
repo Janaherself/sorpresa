@@ -1,6 +1,7 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
+    "types": ["node"]
   },
   "exclude": [
     // Exclude test files and node_modules for production build
