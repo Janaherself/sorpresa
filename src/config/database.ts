@@ -3,14 +3,11 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const { DB_HOST, DB_PORT, DB_NAME, TEST_DB_NAME, DB_USER, DB_PASSWORD, NODE_ENV } = process.env;
+const { NODE_ENV } = process.env;
 
 const pool = new Pool({
-  host: DB_HOST,
-  port: parseInt(DB_PORT!, 10),
-  database: NODE_ENV === 'test' ? TEST_DB_NAME : DB_NAME,
-  user: DB_USER,
-  password: DB_PASSWORD,
+connectionString: process.env.DB_URL,
+ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
 
 pool.on('error', (err: Error) => {
