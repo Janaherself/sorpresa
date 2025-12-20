@@ -8,8 +8,8 @@
     "migrationsDir": "migrations"
   },
   "scripts": {
-    "start": "nodemon dist/server.js",
-    "dev": "ts-node src/server.ts",
+    "start": "node dist/server.js",
+    "dev": "nodemon dist/server.js",
     "format": "prettier . --write",
     "build": "tsc",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
