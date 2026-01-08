@@ -15,6 +15,7 @@ const seedDatabase = async (): Promise<void> => {
     await query('DELETE FROM orders');
     await query('DELETE FROM products');
     await query('DELETE FROM users');
+    await query('DELETE FROM product_images');
 
     // Create sample users
     console.log('👥 Creating sample users...');
@@ -68,9 +69,9 @@ const seedDatabase = async (): Promise<void> => {
         category: 'mystery',
       },
       {
-        name: 'Mystery Gadget Box',
+        name: 'Mystery Tech Box',
         description: 'Tech surprises and fun gadgets await!',
-        price: 39.99,
+        price: 89.99,
         stock: 35,
         category: 'mystery',
       },
@@ -131,16 +132,94 @@ const seedDatabase = async (): Promise<void> => {
         category: 'mystery',
       },
     ];
+    
+    // Create sample product images
+    const productImages = [
+      {
+        imageUrl: 'https://res.cloudinary.com/dm7dkzo77/image/upload/v1767635748/1aifreeforever_eu1c4a.jpg',
+        publicId: '1aifreeforever_eu1c4a',
+      },
+      {
+        imageUrl: 'https://res.cloudinary.com/dm7dkzo77/image/upload/v1767635747/2GemPix_qaeuur.jpg',
+        publicId: '2GemPix_qaeuur',
+      },
+      {
+        imageUrl: 'https://res.cloudinary.com/dm7dkzo77/image/upload/v1767635747/3aifreeforever_uurrxu.jpg',
+        publicId: '3aifreeforever_uurrxu',
+      },
+      {
+        imageUrl: 'https://res.cloudinary.com/dm7dkzo77/image/upload/v1767635746/4GemPix_tunbfr.jpg',
+        publicId: '4GemPix_tunbfr',
+      },
+      {
+        imageUrl: 'https://res.cloudinary.com/dm7dkzo77/image/upload/v1767635746/5GemPix_g2vdlm.jpg',
+        publicId: '5GemPix_g2vdlm',
+      },
+      {
+        imageUrl: 'https://res.cloudinary.com/dm7dkzo77/image/upload/v1767635746/6GemPix_qpsm2f.jpg',
+        publicId: '6GemPix_qpsm2f',
+      },
+      {
+        imageUrl: 'https://res.cloudinary.com/dm7dkzo77/image/upload/v1767635748/7GemPix_e8ruvb.jpg',
+        publicId: '7GemPix_e8ruvb',
+      },
+      {
+        imageUrl: 'https://res.cloudinary.com/dm7dkzo77/image/upload/v1767635748/8GemPix_uj9osg.jpg',
+        publicId: '8GemPix_uj9osg',
+      },
+      {
+        imageUrl: 'https://res.cloudinary.com/dm7dkzo77/image/upload/v1767635748/9GemPix_swo6f6.jpg',
+        publicId: '9GemPix_swo6f6',
+      },
+      {
+        imageUrl: 'https://res.cloudinary.com/dm7dkzo77/image/upload/v1767635747/10GemPix_tufvpg.jpg',
+        publicId: '10GemPix_tufvpg',
+      },
+      {
+        imageUrl: 'https://res.cloudinary.com/dm7dkzo77/image/upload/v1767635746/11aifreeforever2_iaw4at.jpg',
+        publicId: '11aifreeforever2_iaw4at',
+      },
+      {
+        imageUrl: 'https://res.cloudinary.com/dm7dkzo77/image/upload/v1767635747/12GemPix_kcnwtf.jpg',
+        publicId: '12GemPix_kcnwtf',
+      },
+      {
+        imageUrl: 'https://res.cloudinary.com/dm7dkzo77/image/upload/v1767635746/13aifreeforever2_txpmso.jpg',
+        publicId: '13aifreeforever2_txpmso',
+      },
+      {
+        imageUrl: 'https://res.cloudinary.com/dm7dkzo77/image/upload/v1767635747/14GemPix_gmj44w.jpg',
+        publicId: '14GemPix_gmj44w',
+      },
+      {
+        imageUrl: 'https://res.cloudinary.com/dm7dkzo77/image/upload/v1767635746/15aifreeforever_jwctei.jpg',
+        publicId: '15aifreeforever_jwctei',
+      },
+    ];
 
-    for (const productData of products) {
-      await ProductModel.create(
+    for (let i = 0; i < products.length; i++) {
+      const productData = products[i]!;
+
+      const createdProduct = await ProductModel.create(
         productData.name,
         productData.description,
         productData.price,
         productData.stock,
         productData.category,
       );
+
+      const image = productImages[i];
+
+      if (image) {
+        await query(
+          `INSERT INTO product_images (product_id, image_url, public_id, is_primary)
+          VALUES ($1, $2, $3, true)`,
+          [createdProduct.id, image.imageUrl, image.publicId],
+        );
+      }
     }
+
+
     console.log(`✅ Created ${products.length} mystery packages`);
 
     console.log('✨ Database seeding completed successfully!');
